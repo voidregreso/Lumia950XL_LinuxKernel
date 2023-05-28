@@ -1,0 +1,86 @@
+{\rtf1\ansi\ansicpg1252\deff0\nouicompat\deflang2057\deflangfe2057{\fonttbl{\f0\fswiss\fprq2\fcharset0 Calibri;}}
+{\colortbl ;\red255\green0\blue0;\red0\green0\blue255;}
+{\*\generator Riched20 10.0.17134}{\*\mmathPr\mdispDef1\mwrapIndent1440 }\viewkind4\uc1 
+\pard\widctlpar\sa160\sl252\slmult1\b\f0\fs22 Linux on Lumia Guide \par
+\b0 Version 0.2 (preliminary) by enox.\par
+Thanks to imbushuo for providing a 950XL-compatible kernel, all involved with Windows Phone Internals, and LumiaWOA.\par
+Thanks also to Cooper Maxwell for testing and error correction.\par
+\b Guide\par
+\b0 This guide will require some Linux knowledge and will perform potentially destructive operations on the phone being modified. \b If you are not comfortable with risking the future operation of your device, do not perform this process.\par
+\b0 This guide will require internet access.\par
+Instructions have been tested under Ubuntu 18.04 as a host system with Debian 9 (stretch) as the phone system, but it may work with other versions of Debian and Ubuntu. The version of Linux to be installed is up to the user and can be changed by swapping \ldblquote stretch\rdblquote  in step 7 for some other codename for an Ubuntu or Debian version which supports ARM64 (such as \i xenial\i0  for Ubuntu 16.04 or \i bionic\i0  for Ubuntu 18.04). Note that currently Ubuntu may not work. More testing is required.\par
+Step 0 requires Windows and Windows Phone Internals.\line Steps 1 to 3 may be performed under Windows.\line Steps 4+ will require Linux and some understanding of Linux operation.\par
+Wherever \ldblquote the FAT32 partition\rdblquote  is referenced, it refers to the 1GB partition created in step 2.\line Wherever \ldblquote /path/to/ext3/partition\rdblquote  is referenced, it refers to the 16GB partition created in step 4.\par
+If you have only one drive in your PC or virtual machine, the phone will likely be addressed as /dev/sdb, and as a result the FAT32 and ext3 partitions you create will likely be /dev/sdb41 and /dev/sdb42 respectively. These partitions should be mounted and addressed throughout this guide according to the mount points you assign them (eg: /media/boot/ and /media/root/).\par
+\b Phone prep:\par
+Step 0: Unlock Lumia 950XL via usual Windows Phone Internals method\par
+Step 1: Perform usual BootShim/UEFI installation, per WoA instructions\par
+Step 2: Reduce Data partition size (8GB is fine, leaving ~16GB for Linux and ~2GB spare)\par
+\b0 Change \i only\i0  the Data partition, do not modify any other existing partitions.\par
+\b Step 3: Create new FAT32 partition (boot partition, will contain GRUB etc, 1GB is plenty)\par
+Step 4: Create new ext3/4 partition (root partition, will contain Linux, should be created from within Linux)\par
+Linux root partition prep:\par
+Step 5: Install Ubuntu or Debian\par
+\b0 Native or virtual machine will both work, and if you have an existing modern Debian or Ubuntu installation then it may work too. May require a reboot before apt commands work on a fresh install.\par
+\b Step 6: Run the following command:\par
+\b0\i sudo apt install debootstrap \b qemu-user-static\b0\par
+\i0 This will install the necessary tools to build a new installation of Debian on the phone.\par
+\cf1 This step has been updated, previously it specified that "qemu-debootstrap" should be installed, but this is contained within the "qemu-user-static" package.\cf0\par
+\b Step 7: Run the following command:\par
+\b0\i sudo qemu-debootstrap --arch=arm64 stretch /path/to/ext3/partition/\par
+\i0 This will build a basic Debian installation on the phone.\par
+This step may take some time.\par
+\b Step 8: Download the following file, extract it, and copy it to your Debian installation environment\par
+{\b0{\field{\*\fldinst{HYPERLINK https://dev.azure.com/imbushuo-personal/006cd3ae-7802-4bc6-a7f6-86862cd5fb1d/_apis/build/builds/3/artifacts?artifactName=DebPkgs&api-version=5.0&%24format=zip }}{\fldrslt{https://dev.azure.com/imbushuo-personal/006cd3ae-7802-4bc6-a7f6-86862cd5fb1d/_apis/build/builds/3/artifacts?artifactName=DebPkgs&api-version=5.0&%24format=zip\ul0\cf0}}}}\b0\f0\fs22\par
+Copy the .deb files contained within it to an accessible location within the ext3 partition.\par
+\b Step 9: Run the following command:\par
+\b0\i chroot /path/to/ext3/partition\par
+\i0 This command will create a shell session within the new ARM64 Linux installation, this is the shell which is part of the Linux installation located on the phone. Any command you enter here will affect the installation which will run on the phone and not the installation on your local machine.\par
+\b Inside chroot:\par
+Step 10: Run the following commands:\par
+\b0\i apt install /path/to/linux-headers-4.18.6-lumia-950xl-uefi_4.18.6-20181101-3_arm64.deb\par
+apt install /path/to/linux-libc-dev_4.18.6-20181101-3_arm64.deb\par
+apt install /path/to/linux-image-4.18.6-lumia-950xl-uefi_4.18.6-20181101-3_arm64.deb\par
+\i0 The path to these files should be the location where they were copied to within the chroot environment during step 8. They may not all be required, but testing is required, so install them all anyway.\par
+\b Step 11: Run the following commands:\par
+\b0\i apt install initramfs-tools\par
+update-initramfs -c -k 4.18.6-lumia-950xl-uefi\par
+\b\i0 Step 12: Download the following file, extract the .dtb file and copy it to /path/to/ext3/boot/\par
+{\b0{\field{\*\fldinst{HYPERLINK https://dev.azure.com/imbushuo-personal/2dd97f8f-46b8-47d3-be52-28d97814eb4e/_apis/build/builds/53/artifacts?artifactName=DTB&api-version=5.0&%24format=zip }}{\fldrslt{https://dev.azure.com/imbushuo-personal/2dd97f8f-46b8-47d3-be52-28d97814eb4e/_apis/build/builds/53/artifacts?artifactName=DTB&api-version=5.0&%24format=zip\ul0\cf0}}}}\b0\f0\fs22\par
+\b Step 13: Run the following command:\par
+\b0\i apt install tasksel\par
+\i0 This installs the application which allows the user to configure a Debian or Ubuntu installation. It would typically be run during installation via a liveCD or similar, however it must be run manually here as there are currently no installation scripts. It may or may not already be installed as part of the base system, in which case it will simply say that it is already installed, which can be ignored.\par
+It may also be necessary to follow this command with the following:\par
+\i apt update\par
+\i0 This can prevent some \ldblquote tasksel: apt-get failed (100)\rdblquote  errors in the next step.\par
+\b Step 14: Run the following command:\par
+\b0\i tasksel\par
+\i0 Select \ldblquote Debian desktop environment\rdblquote  and a desktop environment of your choice (GNOME, KDE, etc \endash  if you don\rquote t know, you may choose GNOME, which has convenient touchscreen support, but is slow) for installation, confirm your choice by tabbing to \ldblquote ok\rdblquote  and hitting Enter, and wait. Unfortunately during testing this step has proven to be unreliable when installing Debian in particular, so it may need to be restarted if it fails with a \ldblquote tasksel: apt-get failed (100)\rdblquote  error. When the process has completed, it will drop back to the shell, so verify that the shell output doesn\rquote t show an error before continuing to the next step.\par
+This step may take some time.\par
+\b Step 15: Run the following command:\par
+\b0\i adduser user\par
+\i0 Where \ldblquote user\rdblquote  is the username you wish to use, eg: \ldblquote adduser john\rdblquote  or \ldblquote adduser jane\rdblquote . Enter a password when requested (and again to confirm). This will be your user account. Accept the defaults for Full Name, Room Number, etc.\par
+\b Step 16: Enable autologin (varies depending on distribution and version, instructions provided for Debian or Ubuntu with GNOME3)\par
+\b0 Edit /etc/gdm3/daemon.conf:\par
+This will require the installation of an editor, if you do not have one, use this command:\par
+\i apt install nano\par
+\i0 You should now have an editor installed. Run the following command:\par
+\i nano /etc/gdm3/daemon.conf\par
+\i0 There are two lines which must be edited:\par
+\i # AutomaticLoginEnable = true\par
+\i0 Remove the # at the beginning of this line.\par
+\i # AutomaticLogin = user1\par
+\i0 Remove the # at the beginning of this line and replace \ldblquote user1\rdblquote  with the username you chose earlier.\par
+Exit using Ctrl+X, type Y and then Enter. You should now be back at the command line.\par
+\b Step 17: Download the following file and extract its contents to the FAT32 partition\par
+\b0 GRUB-EFI.zip (see enclosed)\par
+\b Step 18: Close the shell and unmount the phone\rquote s partitions:\par
+\b0 Run the following command:\par
+\i exit\par
+\i0 Then, back in the native machine\rquote s shell, run the following commands:\par
+\i sudo umount /path/to/fat32/partition\par
+sudo umount /path/to/ext3/partition\par
+\b\i0\par
+\b0 This should conclude the installation. Reboot the phone by long-pressing the power button, select \ldblquote Linux\rdblquote  from the boot menu using the camera button and then select \ldblquote Linux\rdblquote  in GRUB using the power button. Booting may take a moment and the screen may turn black for a while, but you should eventually see a desktop.\par
+}
+ 
